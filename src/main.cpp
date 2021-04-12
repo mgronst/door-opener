@@ -84,6 +84,16 @@ void open_door()
     digitalWrite(LED_BUILTIN,LOW);
 }
 
+void wifiConnect() {
+	WiFi.mode (WIFI_MODE_STA);
+	WiFi.begin (WIFI_SSID, WIFI_PASSWD);
+	while (!WiFi.isConnected ()) {
+		Serial.print ('.');
+		delay (100);
+	}
+	Serial.println ();
+}
+
 void setup () {
 	mqtt_cfg.host = MQTT_HOST;
 	mqtt_cfg.port = MQTT_PORT;
@@ -100,17 +110,12 @@ void setup () {
 	mqtt_cfg.lwt_msg = "0";
 	mqtt_cfg.lwt_msg_len = 1;
 	
-  pinMode(LED_BUILTIN,OUTPUT);
+  	pinMode(LED_BUILTIN,OUTPUT);
 
 	Serial.begin (115200);
 
-	WiFi.mode (WIFI_MODE_STA);
-	WiFi.begin (WIFI_SSID, WIFI_PASSWD);
-	while (!WiFi.isConnected ()) {
-		Serial.print ('.');
-		delay (100);
-	}
-	Serial.println ();
+	wifiConnect();
+
 #ifdef SECURE_MQTT
 	esp_err_t err = esp_tls_set_global_ca_store (DSTroot_CA, sizeof (DSTroot_CA));
 	ESP_LOGI ("TEST","CA store set. Error = %d %s", err, esp_err_to_name(err));
@@ -124,4 +129,10 @@ void setup () {
 void loop () {	
 	//esp_mqtt_client_publish (client, "test/bye", "data", 4, 0, false);
 	//delay (2000);
+	// Check if wifi is connected
+	if (!WiFi.isConnected ()) {
+		ESP_LOGI ('WiFi disconnected! Running inital setup...');
+		wifiConnect();
+	}
 }
+
