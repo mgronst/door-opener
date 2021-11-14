@@ -11,7 +11,7 @@
 #ifdef SECURE_MQTT
 #include "esp_tls.h"
 
-// Let's Encrypt CA certificate. Change with the one you need
+// Let's Encrypt CA certificate. Change with the one you need. Not necessary if not SSL is used.
 static const unsigned char DSTroot_CA[] PROGMEM = R"EOF(
 -----BEGIN CERTIFICATE-----
 MIIDSjCCAjKgAwIBAgIQRK+wgNajJ7qJMDmGLvhAazANBgkqhkiG9w0BAQUFADA/
@@ -66,6 +66,7 @@ static esp_err_t mqtt_event_handler (esp_mqtt_event_handle_t event) {
 		ESP_LOGI ("TEST", "MQTT msgid= %d event: %d. MQTT_EVENT_DATA", event->msg_id, event->event_id);
 		ESP_LOGI ("TEST", "Topic length %d. Data length %d", event->topic_len, event->data_len);
 		ESP_LOGI ("TEST","Incoming data: %.*s %.*s\n", event->topic_len, event->topic, event->data_len, event->data);
+	// Call open_door() function if correct MQTT Payload received
     if(!strncmp(event->data,"{\"status\":\"on\"}",event->data_len))
     {
       open_door();
@@ -78,8 +79,11 @@ static esp_err_t mqtt_event_handler (esp_mqtt_event_handle_t event) {
 
 void open_door()
 {
- digitalWrite(LED_BUILTIN,HIGH);
-    delay(3000);  
+	// Pull output pin HIGH, wait for 3s, pull output pin LOW. In this case the output pin is the
+	// same as the builtin LED.
+ 	digitalWrite(LED_BUILTIN,HIGH);
+    delay(3000);
+	// Set MQTT payload to off again.
     esp_mqtt_client_publish (client, "home/frontdoor", "{\"status\":\"off\"}", 0, 0, true);
     digitalWrite(LED_BUILTIN,LOW);
 }
@@ -127,8 +131,7 @@ void setup () {
 }
 
 void loop () {	
-	//esp_mqtt_client_publish (client, "test/bye", "data", 4, 0, false);
-	//delay (2000);
+
 	// Check if wifi is connected
 	if (!WiFi.isConnected ()) {
 		ESP_LOGI ('WiFi disconnected! Running inital setup...');
