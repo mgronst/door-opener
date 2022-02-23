@@ -8,6 +8,9 @@
 
 #define SECURE_MQTT // Comment this line if you are not using MQTT over SSL
 
+#define LED_BUILTIN 2
+#define PIN_SENSOR 5
+
 #ifdef SECURE_MQTT
 #include "esp_tls.h"
 
@@ -38,6 +41,10 @@ Ob8VZRzI9neWagqNdwvYkQsEjgfbKbYK7p2CNTUQ
 
 esp_mqtt_client_config_t mqtt_cfg;
 esp_mqtt_client_handle_t client;
+
+int currentDoorState; // current state of door sensor
+int lastDoorState;    // previous state of door sensor
+
 
 #ifdef SECURE_MQTT
 const uint32_t MQTT_PORT = 8883;
@@ -78,10 +85,10 @@ static esp_err_t mqtt_event_handler (esp_mqtt_event_handle_t event) {
 
 void open_door()
 {
- digitalWrite(LED_BUILTIN,HIGH);
+ 	digitalWrite(LED_BUILTIN,HIGH);
     delay(3000);  
-    esp_mqtt_client_publish (client, "home/frontdoor", "{\"status\":\"off\"}", 0, 0, true);
     digitalWrite(LED_BUILTIN,LOW);
+    esp_mqtt_client_publish (client, "home/frontdoor", "{\"status\":\"off\"}", 0, 0, true);
 }
 
 void wifiConnect() {
@@ -111,8 +118,13 @@ void setup () {
 	mqtt_cfg.lwt_msg_len = 1;
 	
   	pinMode(LED_BUILTIN,OUTPUT);
+	pinMode(PIN_SENSOR, INPUT_PULLUP);
+	currentDoorState = digitalRead(PIN_SENSOR); // read state
+
 
 	Serial.begin (115200);
+
+	ESP_LOGI ("TEST","Door state is = %d", currentDoorState);
 
 	wifiConnect();
 
@@ -134,5 +146,19 @@ void loop () {
 		ESP_LOGI ('WiFi disconnected! Running inital setup...');
 		wifiConnect();
 	}
+
+	lastDoorState = currentDoorState;              // save the last state
+  	currentDoorState  = digitalRead(PIN_SENSOR); // read new state
+
+	if (lastDoorState == LOW && currentDoorState == HIGH) { // state change: LOW -> HIGH
+		ESP_LOGI ("TEST","Door event OPENING");
+    	esp_mqtt_client_publish (client, "home/frontdoor", "{\"event\":\"open\"}", 0, 0, true);
+	}
+	else
+	if (lastDoorState == HIGH && currentDoorState == LOW) { // state change: HIGH -> LOW
+		ESP_LOGI ("TEST","Door event CLOSING");
+    	esp_mqtt_client_publish (client, "home/frontdoor", "{\"event\":\"close\"}", 0, 0, true);
+	}
+
 }
 
